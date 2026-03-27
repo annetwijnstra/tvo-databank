@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TVO Databank — Taalpareltjes</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;500;600&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --coral: #D85A30; --coral-light: #FAECE7; --coral-dark: #993C1D;
+    --teal: #1D9E75; --teal-light: #E1F5EE; --teal-dark: #085041;
+    --amber: #BA7517; --amber-light: #FAEEDA; --amber-dark: #412402;
+    --purple: #534AB7; --purple-light: #EEEDFE; --purple-dark: #26215C;
+    --ink: #1a1a18; --ink-mid: #4a4a47; --ink-light: #8a8a85;
+    --cream: #faf9f5; --cream-mid: #f0ede4; --cream-dark: #e0ddd4;
+    --white: #ffffff;
+    --radius: 10px; --radius-lg: 16px; --radius-xl: 24px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'DM Sans', system-ui, sans-serif;
+  }
+  body { font-family: var(--font-body); background: var(--cream); color: var(--ink); min-height: 100vh; }
+
+  /* HEADER */
+  .site-header { background: var(--white); border-bottom: 1px solid var(--cream-dark); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 64px; position: sticky; top: 0; z-index: 50; }
+  .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .logo-mark { width: 36px; height: 36px; background: var(--coral); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .logo-mark svg { width: 20px; height: 20px; fill: none; stroke: white; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .logo-name { font-family: var(--font-display); font-size: 18px; font-weight: 600; color: var(--ink); }
+  .logo-sub { font-size: 11px; color: var(--ink-light); margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .btn-add { background: var(--coral); color: white; border: none; padding: 8px 18px; border-radius: var(--radius); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.15s; }
+  .btn-add:hover { background: var(--coral-dark); }
+  .btn-add svg { width: 14px; height: 14px; stroke: white; stroke-width: 2.5; fill: none; }
+  .user-chip { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--ink-mid); }
+  .user-avatar { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; }
+
+  /* HERO */
+  .hero { background: var(--ink); color: white; padding: 2.5rem 2rem; }
+  .hero-inner { max-width: 900px; margin: 0 auto; }
+  .hero h1 { font-family: var(--font-display); font-size: 32px; font-weight: 500; margin-bottom: 8px; line-height: 1.2; }
+  .hero p { font-size: 14px; color: rgba(255,255,255,0.6); max-width: 560px; line-height: 1.6; }
+  .pijler-legend { display: flex; gap: 16px; margin-top: 1.25rem; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: rgba(255,255,255,0.75); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .legend-dot.context { background: var(--teal); }
+  .legend-dot.interactie { background: var(--amber); }
+  .legend-dot.taalsteun { background: var(--purple); }
+
+  /* FILTERS */
+  .filters-bar { background: var(--white); border-bottom: 1px solid var(--cream-dark); padding: 0.75rem 2rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; position: sticky; top: 64px; z-index: 40; }
+  .pijler-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 5px 14px; border-radius: 999px; border: 1.5px solid; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap; font-family: var(--font-body); }
+  .chip.alle { border-color: var(--cream-dark); color: var(--ink-mid); background: var(--cream); }
+  .chip.alle.active { background: var(--ink); border-color: var(--ink); color: white; }
+  .chip.context { background: var(--teal-light); border-color: var(--teal); color: var(--teal-dark); }
+  .chip.context.active { background: var(--teal); color: white; }
+  .chip.interactie { background: var(--amber-light); border-color: var(--amber); color: var(--amber-dark); }
+  .chip.interactie.active { background: var(--amber); color: white; }
+  .chip.taalsteun { background: var(--purple-light); border-color: var(--purple); color: var(--purple-dark); }
+  .chip.taalsteun.active { background: var(--purple); color: white; }
+  .filter-sep { width: 1px; height: 24px; background: var(--cream-dark); flex-shrink: 0; }
+  .search-wrap { flex: 1; min-width: 180px; display: flex; align-items: center; gap: 7px; background: var(--cream); border: 1px solid var(--cream-dark); border-radius: var(--radius); padding: 6px 11px; }
+  .search-wrap input { border: none; background: transparent; font-size: 13px; font-family: var(--font-body); color: var(--ink); outline: none; width: 100%; }
+  .search-wrap svg { width: 14px; height: 14px; stroke: var(--ink-light); fill: none; flex-shrink: 0; }
+  .filter-select { border: 1px solid var(--cream-dark); border-radius: var(--radius); padding: 6px 10px; font-size: 12px; font-family: var(--font-body); color: var(--ink); background: var(--cream); cursor: pointer; outline: none; }
+  .count-label { font-size: 12px; color: var(--ink-light); margin-left: auto; white-space: nowrap; }
+
+  /* GRID */
+  .main { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem 4rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .card { background: var(--white); border: 1px solid var(--cream-dark); border-radius: var(--radius-lg); padding: 1.1rem 1.25rem; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; display: flex; flex-direction: column; gap: 9px; box-shadow: var(--shadow); }
+  .card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.1); border-color: #ccc; }
+  .card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tag { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .tag.context { background: var(--teal-light); color: var(--teal-dark); }
+  .tag.interactie { background: var(--amber-light); color: var(--amber-dark); }
+  .tag.taalsteun { background: var(--purple-light); color: var(--purple-dark); }
+  .tag.vak { background: var(--cream-mid); color: var(--ink-mid); border: 1px solid var(--cream-dark); }
+  .tag.niveau { background: var(--coral-light); color: #4A1B0C; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .like-btn { display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--ink-light); background: none; border: 1px solid var(--cream-dark); border-radius: var(--radius); padding: 3px 8px; cursor: pointer; transition: all 0.15s; flex-shrink: 0; font-family: var(--font-body); }
+  .like-btn.liked { color: var(--coral); border-color: #F0997B; background: var(--coral-light); }
+  .like-btn svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .like-btn.liked svg { fill: currentColor; }
+  .card-title { font-family: var(--font-display); font-size: 15px; font-weight: 500; color: var(--ink); line-height: 1.4; }
+  .card-desc { font-size: 12px; color: var(--ink-light); line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid var(--cream-mid); }
+  .card-author { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-mid); }
+  .avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 500; flex-shrink: 0; }
+  .card-comments { font-size: 11px; color: var(--ink-light); display: flex; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; font-family: var(--font-body); }
+  .card-comments svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .empty-state { text-align: center; padding: 4rem 2rem; color: var(--ink-light); font-size: 14px; display: none; }
+  .loading-state { text-align: center; padding: 4rem 2rem; color: var(--ink-light); font-size: 14px; }
+
+  /* MODALS */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: flex-start; justify-content: center; padding: 2rem 1rem; overflow-y: auto; }
+  .overlay.open { display: flex; }
+  .modal { background: var(--white); border-radius: var(--radius-xl); width: 100%; max-width: 600px; padding: 1.75rem; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.2); }
+  .modal-hdr { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .modal-title { font-family: var(--font-display); font-size: 20px; font-weight: 500; line-height: 1.3; color: var(--ink); }
+  .close-btn { background: var(--cream); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 16px; color: var(--ink-mid); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+  .close-btn:hover { background: var(--cream-dark); }
+  .modal-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+  .divider { border: none; border-top: 1px solid var(--cream-mid); }
+  .modal-desc { font-size: 14px; color: var(--ink-mid); line-height: 1.7; }
+  .pijler-block { border-radius: var(--radius); padding: 12px 14px; }
+  .pijler-block.context { background: var(--teal-light); }
+  .pijler-block.interactie { background: var(--amber-light); }
+  .pijler-block.taalsteun { background: var(--purple-light); }
+  .pijler-block-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .pijler-block.context .pijler-block-label { color: var(--teal-dark); }
+  .pijler-block.interactie .pijler-block-label { color: var(--amber-dark); }
+  .pijler-block.taalsteun .pijler-block-label { color: var(--purple-dark); }
+  .pijler-block-text { font-size: 13px; color: var(--ink); line-height: 1.55; }
+  .comments-list { display: flex; flex-direction: column; gap: 10px; }
+  .comment-row { display: flex; gap: 9px; }
+  .comment-bubble { background: var(--cream); border-radius: var(--radius); padding: 8px 12px; flex: 1; }
+  .comment-text { font-size: 13px; color: var(--ink); line-height: 1.5; }
+  .comment-meta { font-size: 11px; color: var(--ink-light); margin-top: 3px; }
+  .comment-form { display: flex; gap: 8px; align-items: flex-end; }
+  .comment-form textarea { flex: 1; border: 1px solid var(--cream-dark); border-radius: var(--radius); padding: 8px 11px; font-size: 13px; font-family: var(--font-body); color: var(--ink); background: var(--white); resize: none; outline: none; height: 60px; transition: border-color 0.15s; }
+  .comment-form textarea:focus { border-color: var(--teal); }
+  .btn-send { background: var(--teal); color: white; border: none; border-radius: var(--radius); padding: 0 16px; font-size: 13px; font-weight: 500; font-family: var(--font-body); cursor: pointer; height: 38px; flex-shrink: 0; transition: background 0.15s; }
+  .btn-send:hover { background: var(--teal-dark); }
+
+  /* FORM MODAL */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .fg { display: flex; flex-direction: column; gap: 5px; }
+  .fg.full { grid-column: 1 / -1; }
+  .fg label { font-size: 12px; font-weight: 500; color: var(--ink-mid); }
+  .fg input, .fg select, .fg textarea { border: 1px solid var(--cream-dark); border-radius: var(--radius); padding: 8px 11px; font-size: 13px; font-family: var(--font-body); color: var(--ink); background: var(--white); outline: none; transition: border-color 0.15s; }
+  .fg input:focus, .fg select:focus, .fg textarea:focus { border-color: var(--teal); }
+  .fg textarea { resize: vertical; min-height: 80px; }
+  .pijler-picks { display: flex; gap: 7px; flex-wrap: wrap; }
+  .pp { padding: 5px 13px; border-radius: 999px; border: 1.5px solid; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; font-family: var(--font-body); }
+  .pp.context { border-color: var(--teal); color: var(--teal-dark); background: var(--teal-light); }
+  .pp.context.on { background: var(--teal); color: white; }
+  .pp.interactie { border-color: var(--amber); color: var(--amber-dark); background: var(--amber-light); }
+  .pp.interactie.on { background: var(--amber); color: white; }
+  .pp.taalsteun { border-color: var(--purple); color: var(--purple-dark); background: var(--purple-light); }
+  .pp.taalsteun.on { background: var(--purple); color: white; }
+  .pijler-textarea { display: none; }
+  .form-actions { display: flex; gap: 8px; justify-content: flex-end; padding-top: 4px; }
+  .btn-cancel { background: none; border: 1px solid var(--cream-dark); border-radius: var(--radius); padding: 8px 18px; font-size: 13px; font-family: var(--font-body); cursor: pointer; color: var(--ink-mid); transition: background 0.15s; }
+  .btn-cancel:hover { background: var(--cream); }
+  .btn-submit { background: var(--coral); color: white; border: none; border-radius: var(--radius); padding: 8px 18px; font-size: 13px; font-weight: 500; font-family: var(--font-body); cursor: pointer; transition: background 0.15s; }
+  .btn-submit:hover { background: var(--coral-dark); }
+  .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* AUTH */
+  .auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--cream); }
+  .auth-card { background: var(--white); border-radius: var(--radius-xl); padding: 2.5rem; width: 100%; max-width: 400px; box-shadow: var(--shadow); text-align: center; }
+  .auth-logo { width: 52px; height: 52px; background: var(--coral); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; }
+  .auth-logo svg { width: 28px; height: 28px; fill: none; stroke: white; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .auth-title { font-family: var(--font-display); font-size: 24px; font-weight: 500; margin-bottom: 6px; }
+  .auth-sub { font-size: 13px; color: var(--ink-light); margin-bottom: 1.75rem; line-height: 1.5; }
+  .auth-form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+  .auth-form input { border: 1px solid var(--cream-dark); border-radius: var(--radius); padding: 10px 13px; font-size: 14px; font-family: var(--font-body); color: var(--ink); outline: none; width: 100%; transition: border-color 0.15s; }
+  .auth-form input:focus { border-color: var(--teal); }
+  .auth-btn { background: var(--coral); color: white; border: none; border-radius: var(--radius); padding: 11px; font-size: 14px; font-weight: 500; font-family: var(--font-body); cursor: pointer; width: 100%; margin-top: 4px; transition: background 0.15s; }
+  .auth-btn:hover { background: var(--coral-dark); }
+  .auth-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .auth-toggle { font-size: 13px; color: var(--ink-light); margin-top: 1rem; }
+  .auth-toggle a { color: var(--teal); cursor: pointer; text-decoration: none; font-weight: 500; }
+  .auth-msg { font-size: 12px; padding: 8px 12px; border-radius: var(--radius); margin-top: 8px; }
+  .auth-msg.error { background: #FCEBEB; color: #A32D2D; }
+  .auth-msg.success { background: var(--teal-light); color: var(--teal-dark); }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: var(--ink); color: white; padding: 10px 20px; border-radius: var(--radius); font-size: 13px; z-index: 500; opacity: 0; transition: opacity 0.2s; pointer-events: none; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 600px) {
+    .site-header { padding: 0 1rem; }
+    .hero { padding: 1.75rem 1rem; }
+    .hero h1 { font-size: 24px; }
+    .filters-bar { padding: 0.6rem 1rem; }
+    .main { padding: 1rem 1rem 3rem; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <div class="auth-title">TVO Databank</div>
+    <div class="auth-sub" id="authSub">Log in met je schoolmailadres om lesideeën te bekijken en te delen.</div>
+    <div class="auth-form">
+      <input type="email" id="authEmail" placeholder="jouw@school.nl">
+      <input type="password" id="authPassword" placeholder="Wachtwoord" id="authPassword">
+      <div id="authNameWrap" style="display:none;"><input type="text" id="authName" placeholder="Je naam (bijv. Jeroen B.)"></div>
+      <button class="auth-btn" id="authBtn" onclick="handleAuth()">Inloggen</button>
+      <div class="auth-msg" id="authMsg" style="display:none;"></div>
+    </div>
+    <div class="auth-toggle">
+      <span id="authToggleText">Nog geen account?</span>
+      <a onclick="toggleAuthMode()" id="authToggleLink">Registreer je</a>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="appScreen" style="display:none;">
+  <header class="site-header">
+    <a class="logo" href="#">
+      <div class="logo-mark"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+      <div><div class="logo-name">TVO Databank</div><div class="logo-sub">Taalpareltjes — Ithaka ISK</div></div>
+    </a>
+    <div class="header-right">
+      <div class="user-chip">
+        <div class="avatar" id="headerAvatar" style="font-size:9px;"></div>
+        <span id="headerName" style="font-size:12px;"></span>
+      </div>
+      <button class="btn-add" onclick="openForm()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Pareltje toevoegen
+      </button>
+      <button onclick="signOut()" style="background:none;border:1px solid var(--cream-dark);border-radius:var(--radius);padding:6px 12px;font-size:12px;cursor:pointer;color:var(--ink-mid);font-family:var(--font-body);">Uitloggen</button>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hero-inner">
+      <h1>Taalpareltjes delen &amp; ontdekken</h1>
+      <p>Een gezamenlijke databank van werkvormen voor taalgericht vakonderwijs — van collega's voor collega's.</p>
+      <div class="pijler-legend">
+        <div class="legend-item"><div class="legend-dot context"></div> Context</div>
+        <div class="legend-item"><div class="legend-dot interactie"></div> Interactie</div>
+        <div class="legend-item"><div class="legend-dot taalsteun"></div> Taalsteun</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="filters-bar">
+    <div class="pijler-chips">
+      <div class="chip alle active" onclick="setPijler('alle')">Alle pijlers</div>
+      <div class="chip context" onclick="setPijler('context')">Context</div>
+      <div class="chip interactie" onclick="setPijler('interactie')">Interactie</div>
+      <div class="chip taalsteun" onclick="setPijler('taalsteun')">Taalsteun</div>
+    </div>
+    <div class="filter-sep"></div>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Zoek op trefwoord, docent..." id="searchInput" oninput="render()">
+    </div>
+    <select class="filter-select" id="vakFilter" onchange="render()">
+      <option value="">Alle vakken</option>
+      <option>NT2</option><option>Wiskunde</option><option>Rekenen</option><option>Nederlands</option>
+      <option>Engels</option><option>Drama</option><option>Sport/beweging</option>
+      <option>WO/Wereldoriëntatie</option><option>OT</option><option>Meetkunde</option><option>Alle vakken</option>
+    </select>
+    <select class="filter-select" id="niveauFilter" onchange="render()">
+      <option value="">Alle niveaus</option>
+      <option>ISK</option><option>Alfa/NT2</option><option>Vmbo</option><option>Alle niveaus</option>
+    </select>
+    <div class="count-label" id="countLabel"></div>
+  </div>
+
+  <main class="main">
+    <div class="loading-state" id="loadingState">Pareltjes laden...</div>
+    <div class="grid" id="grid" style="display:none;"></div>
+    <div class="empty-state" id="emptyState">Geen lesideeën gevonden voor deze filters.</div>
+  </main>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="overlay" id="detailOverlay">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title" id="mTitle"></div>
+      <button class="close-btn" onclick="closeOverlay('detailOverlay')">✕</button>
+    </div>
+    <div class="modal-tags" id="mTags"></div>
+    <hr class="divider">
+    <div class="modal-desc" id="mDesc"></div>
+    <div id="mPijlers" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <hr class="divider">
+    <div style="font-size:13px;font-weight:500;color:var(--ink-mid);margin-bottom:6px;">Reacties</div>
+    <div class="comments-list" id="mComments"></div>
+    <div class="comment-form">
+      <textarea id="commentInput" placeholder="Deel een tip of reactie..."></textarea>
+      <button class="btn-send" onclick="postComment()">Stuur</button>
+    </div>
+  </div>
+</div>
+
+<!-- FORM MODAL -->
+<div class="overlay" id="formOverlay">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Nieuw pareltje toevoegen</div>
+      <button class="close-btn" onclick="closeOverlay('formOverlay')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="fg full"><label>Titel *</label><input type="text" id="fTitle" placeholder="Korte naam van je werkvorm"></div>
+      <div class="fg full"><label>Beschrijving *</label><textarea id="fDesc" placeholder="Wat doe je precies? Hoe werkt het in de les?"></textarea></div>
+      <div class="fg full">
+        <label>Pijlers * (kies alle die van toepassing zijn)</label>
+        <div class="pijler-picks">
+          <div class="pp context" id="pp-context" onclick="togglePP('context')">Context</div>
+          <div class="pp interactie" id="pp-interactie" onclick="togglePP('interactie')">Interactie</div>
+          <div class="pp taalsteun" id="pp-taalsteun" onclick="togglePP('taalsteun')">Taalsteun</div>
+        </div>
+      </div>
+      <div class="fg full pijler-textarea" id="pw-context"><label style="color:var(--teal-dark);">Context — hoe bied je betekenisvolle context aan?</label><textarea id="pf-context" placeholder="Bijv. ik start met een afbeelding of nieuwsitem..."></textarea></div>
+      <div class="fg full pijler-textarea" id="pw-interactie"><label style="color:var(--amber-dark);">Interactie — hoe gebruiken leerlingen de taal actief?</label><textarea id="pf-interactie" placeholder="Bijv. leerlingen bespreken in tweetallen..."></textarea></div>
+      <div class="fg full pijler-textarea" id="pw-taalsteun"><label style="color:var(--purple-dark);">Taalsteun — welke ondersteuning bied je aan?</label><textarea id="pf-taalsteun" placeholder="Bijv. woordkaarten, zinsstarters, vertalingen..."></textarea></div>
+      <div class="fg"><label>Vak</label>
+        <select id="fVak"><option value="">Kies vak</option><option>NT2</option><option>Wiskunde</option><option>Rekenen</option><option>Nederlands</option><option>Engels</option><option>Drama</option><option>Sport/beweging</option><option>WO/Wereldoriëntatie</option><option>OT</option><option>Meetkunde</option><option>Alle vakken</option></select>
+      </div>
+      <div class="fg"><label>Niveau</label>
+        <select id="fNiveau"><option value="">Kies niveau</option><option>ISK</option><option>Alfa/NT2</option><option>Vmbo</option><option>Alle niveaus</option></select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn-cancel" onclick="closeOverlay('formOverlay')">Annuleren</button>
+      <button class="btn-submit" id="submitBtn" onclick="submitForm()">Pareltje toevoegen</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://gbkuumdsvvfjzmbsrjep.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_a3N1Gvv-zYhRJLI4O-aepw_46sBHOjJ';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const colors = ['#1D9E75','#BA7517','#534AB7','#D85A30','#185FA5','#3B6D11','#D4537E'];
+const col = n => colors[n.split('').reduce((a,c)=>a+c.charCodeAt(0),0)%colors.length];
+const ini = n => n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+let allData = [];
+let activePijler = 'alle';
+let activeCard = null;
+let activePP = new Set();
+let currentUser = null;
+let currentUserName = '';
+let isRegisterMode = false;
+
+// AUTH
+async function checkSession() {
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    currentUserName = session.user.user_metadata?.name || session.user.email.split('@')[0];
+    showApp();
+  }
+}
+
+async function handleAuth() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const btn = document.getElementById('authBtn');
+  if (!email || !password) { showAuthMsg('Vul je e-mailadres en wachtwoord in.', 'error'); return; }
+  btn.disabled = true;
+  btn.textContent = isRegisterMode ? 'Registreren...' : 'Inloggen...';
+  if (isRegisterMode) {
+    const name = document.getElementById('authName').value.trim() || email.split('@')[0];
+    const { error } = await db.auth.signUp({ email, password, options: { data: { name } } });
+    if (error) { showAuthMsg(error.message, 'error'); }
+    else { showAuthMsg('Controleer je e-mail voor een bevestigingslink!', 'success'); }
+  } else {
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
+    if (error) { showAuthMsg('Onjuist e-mailadres of wachtwoord.', 'error'); }
+    else {
+      currentUser = data.user;
+      currentUserName = data.user.user_metadata?.name || data.user.email.split('@')[0];
+      showApp();
+    }
+  }
+  btn.disabled = false;
+  btn.textContent = isRegisterMode ? 'Registreren' : 'Inloggen';
+}
+
+function toggleAuthMode() {
+  isRegisterMode = !isRegisterMode;
+  document.getElementById('authSub').textContent = isRegisterMode
+    ? 'Maak een account aan met je schoolmailadres.'
+    : 'Log in met je schoolmailadres om lesideeën te bekijken en te delen.';
+  document.getElementById('authBtn').textContent = isRegisterMode ? 'Registreren' : 'Inloggen';
+  document.getElementById('authToggleText').textContent = isRegisterMode ? 'Al een account?' : 'Nog geen account?';
+  document.getElementById('authToggleLink').textContent = isRegisterMode ? 'Inloggen' : 'Registreer je';
+  document.getElementById('authNameWrap').style.display = isRegisterMode ? 'block' : 'none';
+  document.getElementById('authMsg').style.display = 'none';
+}
+
+function showAuthMsg(msg, type) {
+  const el = document.getElementById('authMsg');
+  el.textContent = msg; el.className = 'auth-msg ' + type; el.style.display = 'block';
+}
+
+async function signOut() {
+  await db.auth.signOut();
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  allData = [];
+}
+
+function showApp() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  const av = document.getElementById('headerAvatar');
+  av.textContent = ini(currentUserName);
+  av.style.background = col(currentUserName) + '22';
+  av.style.color = col(currentUserName);
+  document.getElementById('headerName').textContent = currentUserName;
+  loadData();
+}
+
+// DATA
+async function loadData() {
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('grid').style.display = 'none';
+  const { data, error } = await db.from('lesideeen').select('*').order('created_at', { ascending: false });
+  if (error) { showToast('Fout bij laden: ' + error.message); return; }
+  allData = (data || []).map(d => ({
+    ...d,
+    pijlers: typeof d.pijlers === 'string' ? d.pijlers.split(',').filter(Boolean) : (d.pijlers || []),
+    pijlerNotes: (() => { try { return typeof d.pijler_notities === 'string' ? JSON.parse(d.pijler_notities) : (d.pijler_notities || {}); } catch(e) { return {}; } })(),
+    liked: false,
+    comments: []
+  }));
+  document.getElementById('loadingState').style.display = 'none';
+  render();
+}
+
+function setPijler(p) {
+  activePijler = p;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  document.querySelector('.chip.' + (p === 'alle' ? 'alle' : p)).classList.add('active');
+  render();
+}
+
+function render() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const vak = document.getElementById('vakFilter').value;
+  const niv = document.getElementById('niveauFilter').value;
+  const items = allData.filter(d => {
+    if (activePijler !== 'alle' && !d.pijlers.includes(activePijler)) return false;
+    if (vak && d.vak !== vak) return false;
+    if (niv && d.niveau !== niv) return false;
+    if (q && !d.titel.toLowerCase().includes(q) && !d.beschrijving.toLowerCase().includes(q) && !(d.auteur||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  document.getElementById('countLabel').textContent = items.length + ' pareltje' + (items.length === 1 ? '' : 's');
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('emptyState');
+  if (!items.length) { grid.style.display = 'none'; empty.style.display = 'block'; return; }
+  grid.style.display = 'grid'; empty.style.display = 'none';
+  grid.innerHTML = items.map(d => `
+    <div class="card" onclick="openCard(${d.id})">
+      <div class="card-top">
+        <div class="card-tags">
+          ${d.pijlers.map(p=>`<span class="tag ${p}">${p[0].toUpperCase()+p.slice(1)}</span>`).join('')}
+          ${d.vak?`<span class="tag vak">${d.vak}</span>`:''}
+          ${d.niveau?`<span class="tag niveau">${d.niveau}</span>`:''}
+        </div>
+        <button class="like-btn ${d.liked?'liked':''}" onclick="event.stopPropagation();toggleLike(${d.id})">
+          <svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          ${d.likes||0}
+        </button>
+      </div>
+      <div class="card-title">${d.titel}</div>
+      <div class="card-desc">${d.beschrijving}</div>
+      <div class="card-footer">
+        <div class="card-author">
+          <div class="avatar" style="background:${col(d.auteur||'?')}22;color:${col(d.auteur||'?')}">${ini(d.auteur||'?')}</div>
+          ${d.auteur||'Anoniem'}
+        </div>
+        <button class="card-comments" onclick="event.stopPropagation();openCard(${d.id})">
+          <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          ${(d.comments||[]).length}
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+async function toggleLike(id) {
+  const d = allData.find(x => x.id === id);
+  if (!d) return;
+  d.liked = !d.liked;
+  d.likes = (d.likes || 0) + (d.liked ? 1 : -1);
+  await db.from('lesideeen').update({ likes: d.likes }).eq('id', id);
+  render();
+}
+
+async function openCard(id) {
+  activeCard = allData.find(x => x.id === id);
+  if (!activeCard) return;
+  const d = activeCard;
+  document.getElementById('mTitle').textContent = d.titel;
+  document.getElementById('mTags').innerHTML =
+    d.pijlers.map(p=>`<span class="tag ${p}">${p[0].toUpperCase()+p.slice(1)}</span>`).join('') +
+    (d.vak?`<span class="tag vak">${d.vak}</span>`:'') +
+    (d.niveau?`<span class="tag niveau">${d.niveau}</span>`:'');
+  document.getElementById('mDesc').textContent = d.beschrijving;
+  const labels = {context:{l:'Context',c:'var(--teal-dark)'},interactie:{l:'Interactie',c:'var(--amber-dark)'},taalsteun:{l:'Taalsteun',c:'var(--purple-dark)'}};
+  document.getElementById('mPijlers').innerHTML = d.pijlers.filter(p=>d.pijlerNotes&&d.pijlerNotes[p]).map(p=>`
+    <div class="pijler-block ${p}">
+      <div class="pijler-block-label" style="color:${labels[p].c}">${labels[p].l}</div>
+      <div class="pijler-block-text">${d.pijlerNotes[p]}</div>
+    </div>`).join('');
+  await loadComments(id);
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+async function loadComments(lesideeId) {
+  const { data } = await db.from('reacties').select('*').eq('lesidee_id', lesideeId).order('created_at', { ascending: true });
+  const comments = data || [];
+  if (activeCard) activeCard.comments = comments;
+  const el = document.getElementById('mComments');
+  if (!comments.length) { el.innerHTML = '<div style="font-size:13px;color:var(--ink-light);">Nog geen reacties. Wees de eerste!</div>'; return; }
+  el.innerHTML = comments.map(c=>`
+    <div class="comment-row">
+      <div class="avatar" style="background:${col(c.auteur||'?')}22;color:${col(c.auteur||'?')};width:28px;height:28px;flex-shrink:0;font-size:9px;">${ini(c.auteur||'?')}</div>
+      <div class="comment-bubble">
+        <div class="comment-text">${c.inhoud}</div>
+        <div class="comment-meta">${c.auteur}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function postComment() {
+  const inp = document.getElementById('commentInput');
+  const text = inp.value.trim();
+  if (!text || !activeCard) return;
+  const { error } = await db.from('reacties').insert({ lesidee_id: activeCard.id, inhoud: text, auteur: currentUserName });
+  if (error) { showToast('Fout: ' + error.message); return; }
+  inp.value = '';
+  await loadComments(activeCard.id);
+  showToast('Reactie geplaatst!');
+}
+
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+
+function openForm() {
+  activePP.clear();
+  ['context','interactie','taalsteun'].forEach(p => {
+    document.getElementById('pp-'+p).classList.remove('on');
+    document.getElementById('pw-'+p).style.display = 'none';
+    document.getElementById('pf-'+p).value = '';
+  });
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fDesc').value = '';
+  document.getElementById('fVak').selectedIndex = 0;
+  document.getElementById('fNiveau').selectedIndex = 0;
+  document.getElementById('formOverlay').classList.add('open');
+}
+
+function togglePP(p) {
+  const btn = document.getElementById('pp-'+p);
+  const wrap = document.getElementById('pw-'+p);
+  if (activePP.has(p)) { activePP.delete(p); btn.classList.remove('on'); wrap.style.display='none'; }
+  else { activePP.add(p); btn.classList.add('on'); wrap.style.display='block'; }
+}
+
+async function submitForm() {
+  const titel = document.getElementById('fTitle').value.trim();
+  const beschrijving = document.getElementById('fDesc').value.trim();
+  if (!titel || !beschrijving || !activePP.size) { showToast('Vul titel, beschrijving en minimaal één pijler in.'); return; }
+  const pijlerNotes = {};
+  activePP.forEach(p => { const v = document.getElementById('pf-'+p).value.trim(); if (v) pijlerNotes[p] = v; });
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = 'Toevoegen...';
+  const { error } = await db.from('lesideeen').insert({
+    titel, beschrijving,
+    pijlers: [...activePP].join(','),
+    pijler_notities: JSON.stringify(pijlerNotes),
+    vak: document.getElementById('fVak').value,
+    niveau: document.getElementById('fNiveau').value,
+    auteur: currentUserName,
+    likes: 0
+  });
+  btn.disabled = false; btn.textContent = 'Pareltje toevoegen';
+  if (error) { showToast('Fout: ' + error.message); return; }
+  closeOverlay('formOverlay');
+  await loadData();
+  showToast('Pareltje toegevoegd!');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// INIT
+checkSession();
+</script>
+</body>
+</html>
